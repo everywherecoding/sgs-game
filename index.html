@@ -255,6 +255,33 @@
         .victory-winner { font-size: 30px; font-weight: bold; color: #fff; margin: 14px 0; text-shadow: 1px 1px 3px #000; }
         .victory-hint { font-size: 16px; color: #c9b37e; margin-top: 22px; }
 
+        /* 技能說明彈窗 */
+        #skill-info-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10001;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        #skill-info-overlay.show { display: flex; animation: victoryFadeIn 0.25s ease-out; }
+        .skill-info-card {
+            background: linear-gradient(160deg, #2c2416 0%, #1a140a 100%);
+            border: 3px solid #4ddbc4;
+            border-radius: 18px;
+            padding: 28px 34px;
+            max-width: 380px;
+            box-shadow: 0 0 40px rgba(77,219,196,0.4);
+            cursor: default;
+            text-align: center;
+        }
+        .skill-info-general { font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .skill-info-name { font-size: 20px; font-weight: bold; color: #4ddbc4; margin-bottom: 14px; }
+        .skill-info-desc { font-size: 16px; color: #e3caa5; line-height: 1.6; }
+        .skill-info-hint { font-size: 13px; color: #888; margin-top: 18px; }
+
         /* 陣亡動畫：玩家框灰暗崩落 + 中央骷髏浮現 */
         .box-player.death-anim {
             animation: deathFade 1.4s ease-out;
@@ -359,6 +386,8 @@
         .wuzhong-badge { background-color: #e91e63; color: #ffffff; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
         .aoe-badge { background-color: #d84315; color: #ffffff; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
         .group-badge { background-color: #2e7d32; color: #ffffff; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
+        .equip-badge { background-color: #6d4c41; color: #ffd54f; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
+        .armor-badge { background-color: #37474f; color: #80deea; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
         .wuxie-badge { background-color: #673ab7; color: #ffffff; font-size: 13px; display: inline-block; width: 40px; height: 40px; line-height: 16px; padding-top: 4px; border-radius: 50%; margin-top: 2px; vertical-align: top; box-sizing: border-box; }
 
         .hp-display { font-size: 20px; color: #ff4757; margin: 4px 0; text-align: left; }
@@ -433,6 +462,7 @@
     <div id="response-panel" style="display:none; max-width:900px; margin:10px auto; padding:14px; border-radius:10px; background-color:#3a1d1d; border:2px solid #ff5252; box-shadow:0 0 18px rgba(255,82,82,0.5);"></div>
     <div id="played-card-effect"></div>
     <div id="victory-overlay" onclick="closeVictoryOverlay()"></div>
+    <div id="skill-info-overlay" onclick="closeSkillInfo()"></div>
     <div class="box-log" id="game-log"></div>
 
     <div class="players-grid" id="players-wrapper"></div>
@@ -744,6 +774,28 @@
             if (overlay) { overlay.classList.remove('show'); overlay.innerHTML = ''; }
         }
 
+        // 顯示武將技能說明彈窗
+        function showSkillInfo(genKey) {
+            var gen = getGeneralByKey(genKey);
+            if (!gen) return;
+            var overlay = document.getElementById('skill-info-overlay');
+            if (!overlay) return;
+            var kingdomColor = { '蜀':'#43a047', '魏':'#1e88e5', '吳':'#e53935', '群':'#8e24aa' }[gen.kingdom] || '#888';
+            overlay.innerHTML =
+                '<div class="skill-info-card" onclick="event.stopPropagation();">' +
+                    '<div class="skill-info-general"><span style="background:' + kingdomColor + '; padding:2px 10px; border-radius:10px; font-size:18px;">' + gen.kingdom + '</span> ' + escapeHtml(gen.name) + '</div>' +
+                    '<div class="skill-info-name">【' + escapeHtml(gen.skill) + '】</div>' +
+                    '<div class="skill-info-desc">' + escapeHtml(gen.skillDesc) + '</div>' +
+                    '<div class="skill-info-hint">點擊任意處關閉</div>' +
+                '</div>';
+            overlay.classList.add('show');
+        }
+
+        function closeSkillInfo() {
+            var overlay = document.getElementById('skill-info-overlay');
+            if (overlay) { overlay.classList.remove('show'); overlay.innerHTML = ''; }
+        }
+
         // 比對新增的日誌片段，自動播放對應音效（讓所有連線視窗都聽得到）
         function detectAndPlaySounds(fullLog) {
             fullLog = fullLog || "";
@@ -810,6 +862,7 @@
             currentPlayerIdx: 0,
             isGameOver: false,
             hasUsedKillThisTurn: false,
+            skipPlayStage: false,
             isDiscardStage: false,
             requiredDiscardCount: 0,
             selectedDiscardIndices: [],
@@ -923,6 +976,9 @@
                 if (!Array.isArray(pp.hand)) pp.hand = [];
                 if (typeof pp.hp !== 'number') pp.hp = 4;
                 if (typeof pp.maxHp !== 'number') pp.maxHp = 4;
+                if (pp.general === undefined) pp.general = null;
+                if (!pp.equip || typeof pp.equip !== 'object') pp.equip = { weapon: null, armor: null };
+                if (!Array.isArray(pp.judgeZone)) pp.judgeZone = [];
                 if (typeof pp.isAlive !== 'boolean') pp.isAlive = true;
                 if (typeof pp.selectedIndex !== 'number') pp.selectedIndex = -1;
                 if (pp.id === undefined) pp.id = i + 1;
@@ -1152,6 +1208,142 @@
             return colors[idx % colors.length];
         }
 
+        // ===== 武將定義表（第一批 6 將）=====
+        // skill 欄位是技能識別碼，實際效果寫在各掛鉤處（出殺判定、傷害結算等）
+        var GENERALS = [
+            { key: 'zhangfei', name: '張飛', kingdom: '蜀', maxHp: 4, skill: '咆哮', skillDesc: '出牌階段你可以使用任意數量的【殺】（不受每回合一殺限制）。', active: true },
+            { key: 'guanyu',  name: '關羽', kingdom: '蜀', maxHp: 4, skill: '武聖', skillDesc: '你的紅色手牌（含桃）都可以當作【殺】使用。', active: true },
+            { key: 'liubei',  name: '劉備', kingdom: '蜀', maxHp: 4, skill: '仁德', skillDesc: '出牌階段你可以把手牌交給其他角色。', active: true },
+            { key: 'caocao',  name: '曹操', kingdom: '魏', maxHp: 4, skill: '奸雄', skillDesc: '你受到傷害後（未陣亡）摸 1 張牌。', active: true },
+            { key: 'huatuo',  name: '華佗', kingdom: '群', maxHp: 3, skill: '急救', skillDesc: '你可以把任意紅色牌當作【桃】使用（出牌階段補血、或瀕死時自救）。', active: true },
+            { key: 'machao',  name: '馬超', kingdom: '蜀', maxHp: 4, skill: '鐵騎', skillDesc: '你使用【殺】指定目標後，目標需要連續出 2 張【閃】才能抵消。', active: true }
+        ];
+
+        function getGeneralByKey(key) {
+            for (var i = 0; i < GENERALS.length; i++) { if (GENERALS[i].key === key) return GENERALS[i]; }
+            return null;
+        }
+
+        // ===== 裝備定義表 =====
+        var EQUIPMENTS = {
+            'crossbow':    { name: '諸葛連弩', slot: 'weapon', desc: '出牌階段你可以使用任意數量的【殺】。' },
+            'greendragon': { name: '青龍偃月刀', slot: 'weapon', desc: '你的【殺】被【閃】抵消後，可以再追加一張【殺】。' },
+            'bagua':       { name: '八卦陣', slot: 'armor', desc: '你需要出【閃】時，可發動判定，紅色則視為已出【閃】。' },
+            'renwang':     { name: '仁王盾', slot: 'armor', desc: '黑色的【殺】對你無效。' },
+            'qinggang':    { name: '青釭劍', slot: 'weapon', desc: '你使用【殺】時，無視對方的防具。' },
+            'hanbing':     { name: '寒冰劍', slot: 'weapon', desc: '你的【殺】造成傷害時，可改為棄掉對方兩張牌（不造成傷害）。' },
+            'guanshi':     { name: '貫石斧', slot: 'weapon', desc: '你的【殺】被【閃】抵消後，可棄兩張牌讓此【殺】強制命中。' },
+            'zhangba':     { name: '丈八蛇矛', slot: 'weapon', desc: '你可以將兩張手牌當作一張【殺】使用。' }
+        };
+        function getEquipDef(key) { return EQUIPMENTS[key] || null; }
+        function isEquipType(t) { return !!EQUIPMENTS[t]; }
+
+        // 判斷某玩家是否擁有指定技能（用武將 key 對應）
+        function playerHasSkill(pIdx, skillKey) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.general) return false;
+            return p.general === skillKey;
+        }
+
+        // ===== 統一「可當殺/可當閃」判斷 =====
+        // 回傳手牌中第一張「可作為殺使用」的牌索引；找不到回 -1。
+        // 規則：真正的殺一定可以；關羽【武聖】時，紅色牌（含桃，但排除閃/無懈）也可當殺。
+        function findUsableKillIndex(pIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.hand) return -1;
+            // 先找真正的殺
+            for (var i = 0; i < p.hand.length; i++) {
+                if (p.hand[i].displayType === 'kill') return i;
+            }
+            // 關羽武聖：紅色牌都可當殺（只看顏色，無例外）
+            if (playerHasSkill(pIdx, 'guanyu')) {
+                for (var j = 0; j < p.hand.length; j++) {
+                    var c = p.hand[j];
+                    if (c.colorClass === 'red-suit' && c.displayType !== 'kill') return j;
+                }
+            }
+            return -1;
+        }
+
+        // 回傳手牌中「所有可作為殺使用」的牌索引清單（給關羽決鬥時自行選牌用）
+        function listUsableKillIndices(pIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            var out = [];
+            if (!p || !p.hand) return out;
+            var isGuanyu = playerHasSkill(pIdx, 'guanyu');
+            for (var i = 0; i < p.hand.length; i++) {
+                var c = p.hand[i];
+                if (c.displayType === 'kill') { out.push(i); continue; }
+                if (isGuanyu && c.colorClass === 'red-suit') out.push(i);
+            }
+            return out;
+        }
+
+        // 判斷某張手牌是否可作為殺使用（給點牌時驗證）
+        function canCardBeKill(pIdx, cardIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.hand || cardIdx < 0 || cardIdx >= p.hand.length) return false;
+            var c = p.hand[cardIdx];
+            if (c.displayType === 'kill') return true;
+            if (playerHasSkill(pIdx, 'guanyu') && c.colorClass === 'red-suit') return true;
+            return false;
+        }
+
+        // 回傳手牌中第一張「可作為閃使用」的牌索引；找不到回 -1。
+        // 規則：真正的閃一定可以。（未來若有「紅牌當閃」類技能，在此擴充）
+        function findUsableDodgeIndex(pIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.hand) return -1;
+            for (var i = 0; i < p.hand.length; i++) {
+                if (p.hand[i].displayType === 'dodge') return i;
+            }
+            return -1;
+        }
+
+        // 回傳手牌中第一張「可作為桃使用」的牌索引；找不到回 -1。
+        // 規則：真正的桃一定可以；華佗【急救】時，紅色牌也可當桃（排除無懈）。
+        function findUsablePeachIndex(pIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.hand) return -1;
+            for (var i = 0; i < p.hand.length; i++) {
+                if (p.hand[i].displayType === 'peach') return i;
+            }
+            if (playerHasSkill(pIdx, 'huatuo')) {
+                for (var j = 0; j < p.hand.length; j++) {
+                    var c = p.hand[j];
+                    if (c.colorClass === 'red-suit' && c.displayType !== 'peach' && c.displayType !== 'wuxie') return j;
+                }
+            }
+            return -1;
+        }
+
+        // 判斷某張手牌是否可作為桃使用
+        function canCardBePeach(pIdx, cardIdx) {
+            var p = gState.playersData && gState.playersData[pIdx];
+            if (!p || !p.hand || cardIdx < 0 || cardIdx >= p.hand.length) return false;
+            var c = p.hand[cardIdx];
+            if (c.displayType === 'peach') return true;
+            if (playerHasSkill(pIdx, 'huatuo') && c.colorClass === 'red-suit' && c.displayType !== 'wuxie') return true;
+            return false;
+        }
+
+        // 隨機分配武將（每人不重複），回傳長度 totalP 的武將 key 陣列
+        function assignGenerals(totalP) {
+            var pool = GENERALS.slice();
+            // 洗牌
+            for (var i = pool.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+            }
+            var result = [];
+            for (var k = 0; k < totalP; k++) {
+                // 武將數若不足人數則循環使用（6 將足夠 6 人，保險起見）
+                result.push(pool[k % pool.length].key);
+            }
+            return result;
+        }
+
+
         // 原始簡化牌庫（3 人以下使用）：共 54 張
         function initSimpleDeck(deckCount) {
             var tDeck = [];
@@ -1241,6 +1433,14 @@
                 // 【決鬥】3 張
                 addCard('duel','♠','A'); addCard('duel','♣','A'); addCard('duel','♦','A');
 
+                // 【借刀殺人】2 張
+                addCard('jiedao','♣','12'); addCard('jiedao','♣','13');
+
+                // 【樂不思蜀】3 張（延時錦囊）
+                addCard('lebu','♠','6'); addCard('lebu','♥','6'); addCard('lebu','♣','6');
+                // 【閃電】2 張（延時錦囊）
+                addCard('shandian','♠','2'); addCard('shandian','♠','3');
+
                 // 【南蠻入侵】3 張
                 addCard('nanman','♠','7'); addCard('nanman','♠','13'); addCard('nanman','♣','7');
 
@@ -1252,6 +1452,24 @@
 
                 // 【五穀豐登】2 張
                 addCard('wugu','♥','3'); addCard('wugu','♥','4');
+
+                // ===== 裝備牌 =====
+                // 武器：諸葛連弩（出牌階段可使用任意數量的殺）
+                addCard('crossbow','♣','A'); addCard('crossbow','♦','A');
+                // 武器：青龍偃月刀（殺被閃抵消後可追一張殺）
+                addCard('greendragon','♠','5');
+                // 防具：八卦陣（被要求出閃時可判定，紅色免出閃）
+                addCard('bagua','♠','2'); addCard('bagua','♥','2');
+                // 防具：仁王盾（黑色的殺對你無效）
+                addCard('renwang','♣','2');
+                // 武器：青釭劍（無視防具）
+                addCard('qinggang','♠','6');
+                // 武器：寒冰劍（殺命中可改為棄對方兩張牌）
+                addCard('hanbing','♠','2');
+                // 武器：貫石斧（殺被閃後棄兩牌強制命中）
+                addCard('guanshi','♦','5');
+                // 武器：丈八蛇矛（兩張手牌當一個殺）
+                addCard('zhangba','♠','12');
             }
             // 洗牌（Fisher-Yates）
             for (var i = tDeck.length - 1; i > 0; i--) {
@@ -1284,12 +1502,18 @@
             
             // 依人數選牌庫：3 人以下用原始 54 張簡化版，4 人以上用標準配置
             var fullDeck = buildDeckForPlayers(totalP);
+            var generalKeys = assignGenerals(totalP); // 隨機分配武將
             var pData = [];
             for (var i = 0; i < totalP; i++) {
+                var gen = getGeneralByKey(generalKeys[i]);
+                var gMaxHp = gen ? gen.maxHp : 4;
                 pData.push({
                     id: i + 1,
                     hand: fullDeck.slice(0, 4), 
-                    hp: 4, maxHp: 4, selectedIndex: -1, isAlive: true
+                    hp: gMaxHp, maxHp: gMaxHp, selectedIndex: -1, isAlive: true,
+                    general: generalKeys[i],   // 武將 key
+                    equip: { weapon: null, armor: null },   // 裝備區：武器、防具
+                    judgeZone: []   // 判定區：延時錦囊（樂不思蜀、閃電）
                 });
                 fullDeck = fullDeck.slice(4);
             }
@@ -1337,6 +1561,7 @@
                 currentPlayerIdx: Math.floor(Math.random() * totalP),
                 isGameOver: false,
                 hasUsedKillThisTurn: false,
+                skipPlayStage: false,
                 isDiscardStage: false,
                 requiredDiscardCount: 0,
                 selectedDiscardIndices: [],
@@ -1389,6 +1614,26 @@
         function selectCard(pIdx, cardIdx) {
             // 防偷點防呆：只有自己的視窗可以點選自己的牌
             if (gState.isGameOver || myPlayerIdx !== pIdx) return;
+            // 丈八蛇矛：正在選第二張組成殺
+            if (gState.zhangbaActive && gState.currentPlayerIdx === pIdx) {
+                if (pickZhangbaSecond(pIdx, cardIdx)) return;
+            }
+            // 決鬥點殺模式（關羽武聖多張可選）：點手牌即選為殺
+            if (gState.pending && gState.pending.kind === 'duel' && gState.pending.awaitKillPick) {
+                if (pickDuelKillCard(pIdx, cardIdx)) return;
+            }
+            // 南蠻點殺模式（關羽武聖多張可選）：點手牌即選為殺
+            if (gState.pending && gState.pending.kind === 'aoe' && gState.pending.awaitKillPick) {
+                if (pickAoeKillCard(pIdx, cardIdx)) return;
+            }
+            // 青龍刀追殺點殺模式（關羽武聖多張可選）：點手牌即選為殺
+            if (gState.pending && gState.pending.kind === 'greendragon' && gState.pending.awaitKillPick) {
+                if (pickGreenDragonKillCard(pIdx, cardIdx)) return;
+            }
+            // 借刀殺人點殺模式（關羽武聖持刀者多張可選）：點手牌即選為殺
+            if (gState.pending && gState.pending.kind === 'jiedao' && gState.pending.awaitKillPick) {
+                if (pickJiedaoKillCard(pIdx, cardIdx)) return;
+            }
             // 只有「當前回合的玩家」能選牌；非當前回合者點牌不可寫入雲端，
             // 否則會用自己的 gState 副本覆蓋掉當前玩家的狀態（多人連線競態）。
             if (gState.currentPlayerIdx !== pIdx) return;
@@ -1420,6 +1665,32 @@
             gState.targetSelectCardIdx = -1;
             gState.targetSelectCardType = "";
             gState.targetSelectCardName = "";
+            gState.jiedaoStep = null;
+            gState.jiedaoWielder = -1;
+            gState.zhangbaActive = false;
+            gState.zhangbaFirst = -1;
+        }
+
+        // 借刀殺人：打出後先問無懈，通過後讓持刀者選擇出殺或交武器
+        function executeJiedao(pIdx, cardIdx, wielderIdx, victimIdx) {
+            var p = gState.playersData[pIdx];
+            var card = p.hand[cardIdx];
+            gState.isSelectingTarget = false;
+            p.hand.splice(cardIdx, 1);
+            if (!gState.discardPile) gState.discardPile = [];
+            gState.discardPile.push(card);
+            p.selectedIndex = -1;
+            cancelTargetSelection();
+            recordPlayedCard(card, p.id);
+            gState.gameLogHtml += "<br>🗡️ 【玩家 " + p.id + "】 對【玩家 " + gState.playersData[wielderIdx].id + "】使用了【借刀殺人】，要他攻擊【玩家 " + gState.playersData[victimIdx].id + "】！";
+            startWuxieQuery({
+                sourceIdx: pIdx,
+                targetIdx: wielderIdx,
+                cardName: '借刀殺人',
+                trickType: 'jiedao',
+                extra: { wielderIdx: wielderIdx, victimIdx: victimIdx }
+            });
+            updateCloud();
         }
 
         function handlePlayerBlockClick(clickedIdx) {
@@ -1434,15 +1705,129 @@
                 alert("該玩家沒有手牌可供順手牽羊！"); return;
             }
 
+            // 劉備仁德：把選定的牌送給點選的玩家
+            if (gState.targetSelectCardType === 'rende') {
+                if (!confirm("🎁 把這張牌交給【玩家 " + targetP.id + "】？")) return;
+                var giver = gState.playersData[gState.currentPlayerIdx];
+                var giveIdx = gState.targetSelectCardIdx;
+                if (giveIdx >= 0 && giveIdx < giver.hand.length) {
+                    var giveCard = giver.hand.splice(giveIdx, 1)[0];
+                    if (!targetP.hand) targetP.hand = [];
+                    targetP.hand.push(giveCard);
+                    gState.gameLogHtml += "<br>🎁 【仁德】【玩家 " + giver.id + "】 把一張牌交給了【玩家 " + targetP.id + "】。";
+                }
+                giver.selectedIndex = -1;
+                cancelTargetSelection();
+                updateCloud();
+                return;
+            }
+
+            // 借刀殺人：兩階段選目標（先持刀者，再被殺者）
+            if (gState.targetSelectCardType === 'jiedao') {
+                if (gState.jiedaoStep === 'pickWielder') {
+                    // 第一步：選持刀者（須有武器）
+                    if (!targetP.equip || !targetP.equip.weapon) {
+                        alert("【借刀殺人】只能指定「裝備了武器」的角色當持刀者！"); return;
+                    }
+                    if (!confirm("🗡️ 指定【玩家 " + targetP.id + "】為持刀者？\n（接下來選擇要他攻擊的對象）")) return;
+                    gState.jiedaoWielder = clickedIdx;
+                    gState.jiedaoStep = 'pickVictim';
+                    updateCloud();
+                    return;
+                } else if (gState.jiedaoStep === 'pickVictim') {
+                    // 第二步：選被殺者（不能是持刀者自己）
+                    if (clickedIdx === gState.jiedaoWielder) {
+                        alert("被攻擊的對象不能是持刀者自己！"); return;
+                    }
+                    if (!confirm("🎯 讓【玩家 " + gState.playersData[gState.jiedaoWielder].id + "】攻擊【玩家 " + targetP.id + "】？")) return;
+                    executeJiedao(gState.currentPlayerIdx, gState.targetSelectCardIdx, gState.jiedaoWielder, clickedIdx);
+                    return;
+                }
+            }
+
             var confirmAction = confirm("🎯 確定要對【玩家 " + targetP.id + "】發動【" + gState.targetSelectCardName + "】嗎？");
             if (!confirmAction) return;
 
             executeCardEffectWithTarget(gState.currentPlayerIdx, gState.targetSelectCardIdx, clickedIdx);
         }
 
+        // 丈八蛇矛：點裝備發動。檢查回合、一殺限制後，進入「選第一張牌」模式
+        function activateZhangba(pIdx) {
+            // 只有當前玩家、自己的視窗可發動
+            if (gState.isGameOver || gState.currentPlayerIdx !== pIdx || myPlayerIdx !== pIdx) return;
+            if (gState.pending != null || gState.pickCard != null) return;
+            if (gState.isDiscardStage) { alert("棄牌階段無法發動【丈八蛇矛】。"); return; }
+            if (gState.skipPlayStage) { alert("🎭 你受到【樂不思蜀】影響，本回合跳過出牌階段！"); return; }
+            var p = gState.playersData[pIdx];
+            if (!p.equip || p.equip.weapon !== 'zhangba') { alert("你沒有裝備【丈八蛇矛】。"); return; }
+            if (!p.hand || p.hand.length < 2) { alert("【丈八蛇矛】需要至少兩張手牌才能發動。"); return; }
+            // 一殺限制：丈八組成的是「殺」，若本回合已出過殺且無連弩/咆哮 → 擋住
+            var canMultiKill = playerHasSkill(pIdx, 'zhangfei') || (p.equip && p.equip.weapon === 'crossbow');
+            if (gState.hasUsedKillThisTurn && !canMultiKill) {
+                alert("⚔️ 你本回合已經使用過【殺】了，無法再用【丈八蛇矛】出殺！");
+                return;
+            }
+            // 進入「選第一張牌」模式
+            gState.zhangbaActive = true;
+            gState.zhangbaFirst = -1;
+            p.selectedIndex = -1;
+            gState.gameLogHtml += "<br>🐍 【玩家 " + p.id + "】 發動【丈八蛇矛】，請點選兩張手牌組成【殺】。";
+            updateCloud();
+        }
+
+        // 丈八蛇矛：選擇第二張牌，與第一張組成一個【殺】
+        function pickZhangbaSecond(pIdx, cardIdx) {
+            if (!gState.zhangbaActive) return false;
+            if (myPlayerIdx !== pIdx) return false;
+            var p = gState.playersData[pIdx];
+            // 還沒選第一張：這次點擊就是第一張
+            if (gState.zhangbaFirst === -1) {
+                if (cardIdx < 0 || cardIdx >= p.hand.length) return true;
+                gState.zhangbaFirst = cardIdx;
+                p.selectedIndex = cardIdx;
+                gState.gameLogHtml += "<br>🐍 已選第一張，請再點選第二張手牌。";
+                updateCloud();
+                return true;
+            }
+            var firstIdx = gState.zhangbaFirst;
+            if (cardIdx === firstIdx) { alert("請選擇「另一張」不同的手牌。"); return true; }
+            if (firstIdx < 0 || firstIdx >= p.hand.length || cardIdx < 0 || cardIdx >= p.hand.length) {
+                // 索引失效，取消丈八
+                gState.zhangbaActive = false; gState.zhangbaFirst = -1; updateCloud(); return true;
+            }
+            // 二次確認一殺限制（防止發動後狀態改變）
+            var canMultiKill2 = playerHasSkill(pIdx, 'zhangfei') || (p.equip && p.equip.weapon === 'crossbow');
+            if (gState.hasUsedKillThisTurn && !canMultiKill2) {
+                alert("⚔️ 你本回合已經使用過【殺】了！");
+                gState.zhangbaActive = false; gState.zhangbaFirst = -1;
+                p.selectedIndex = -1; updateCloud(); return true;
+            }
+            // 取出兩張牌（先取大索引避免位移錯亂）
+            var hi = Math.max(firstIdx, cardIdx), lo = Math.min(firstIdx, cardIdx);
+            var cardA = p.hand[lo], cardB = p.hand[hi];
+            p.hand.splice(hi, 1); p.hand.splice(lo, 1);
+            if (!gState.discardPile) gState.discardPile = [];
+            gState.discardPile.push(cardA); gState.discardPile.push(cardB);
+            recordPlayedCard(cardA, p.id);
+            gState.zhangbaActive = false; gState.zhangbaFirst = -1;
+            p.selectedIndex = -1;
+            // 組成一個虛擬殺，進入選目標流程
+            gState.hasUsedKillThisTurn = true; // 丈八出的算一殺
+            gState.gameLogHtml += "<br>🐍 【玩家 " + p.id + "】 用【丈八蛇矛】將兩張牌組成一張【殺】！請選擇攻擊目標。";
+            // 用一個臨時殺牌物件走選目標
+            gState.isSelectingTarget = true;
+            gState.targetSelectCardIdx = -1; // -1 代表是丈八虛擬殺，不從手牌取
+            gState.targetSelectCardType = 'kill';
+            gState.targetSelectCardName = '殺（丈八蛇矛）';
+            gState.zhangbaKillCard = { displayType: 'kill', suit: '🐍', name: '丈八', colorClass: 'black-suit' };
+            updateCloud();
+            return true;
+        }
+
         function useCard(pIdx) {
             if (gState.isGameOver || gState.currentPlayerIdx !== pIdx || myPlayerIdx !== pIdx || gState.isDiscardStage) return;
             if (gState.pending != null || gState.pickCard != null) return;
+            if (gState.skipPlayStage) { alert("🎭 你受到【樂不思蜀】影響，本回合跳過出牌階段！請直接結束回合。"); return; }
             var p = gState.playersData[pIdx];
             var selIdx = p.selectedIndex;
             if (selIdx === -1 || !p.hand) { alert("請先點選一張要使用的手牌！"); return; }
@@ -1450,19 +1835,94 @@
             var card = p.hand[selIdx];
             var finalType = card.displayType;
 
-            if (finalType === 'kill' && gState.hasUsedKillThisTurn) { alert("⚔️ 每回合限主動使用一次【殺】！"); return; }
+            // 劉備【仁德】：出牌階段可把手牌交給其他角色（裝備牌除外）
+            if (playerHasSkill(pIdx, 'liubei') && !isEquipType(finalType)) {
+                var useRende = confirm("🎁【仁德】是否把這張【" + getCardNameChinese(finalType) + "】交給其他角色？\n（按「取消」則照原本使用）");
+                if (useRende) {
+                    gState.isSelectingTarget = true;
+                    gState.targetSelectCardIdx = selIdx;
+                    gState.targetSelectCardType = 'rende';
+                    gState.targetSelectCardName = '仁德贈牌';
+                    gState.gameLogHtml += "<br>🎁 【玩家 " + p.id + "】 發動【仁德】，請選擇要贈予的對象。";
+                    updateCloud();
+                    return;
+                }
+            }
+
+            // 關羽【武聖】：紅色手牌都可以當作【殺】使用（只看顏色，無例外）
+            if (playerHasSkill(pIdx, 'guanyu') && card.colorClass === 'red-suit' && finalType !== 'kill') {
+                var asKill = confirm("🗡️【武聖】是否將這張紅色的【" + getCardNameChinese(finalType) + "】當作【殺】使用？\n（按「取消」則照原本的牌使用）");
+                if (asKill) {
+                    finalType = 'kill'; // 強制當殺處理（後續走出殺流程）
+                }
+            }
+
+            // 華佗【急救】：紅色手牌（含紅色的殺）都可以當作【桃】使用（自己未滿血時）
+            if (playerHasSkill(pIdx, 'huatuo') && card.colorClass === 'red-suit'
+                && finalType !== 'peach' && finalType !== 'wuxie'
+                && !isEquipType(finalType) && p.hp < p.maxHp) {
+                var asPeach = confirm("💊【急救】是否將這張紅色的【" + getCardNameChinese(finalType) + "】當作【桃】使用，回復 1 點血量？\n（按「取消」則照原本的牌使用）");
+                if (asPeach) {
+                    finalType = 'peach';
+                }
+            }
+
+            // 張飛【咆哮】或裝備【諸葛連弩】：可使用任意數量的殺
+            var canMultiKill = playerHasSkill(pIdx, 'zhangfei') || (p.equip && p.equip.weapon === 'crossbow');
+            if (finalType === 'kill' && gState.hasUsedKillThisTurn && !canMultiKill) { alert("⚔️ 每回合限主動使用一次【殺】！"); return; }
             if ((finalType === 'dodge' || finalType === 'wuxie')) { alert("該牌為被動回應牌，無法主動使用！"); return; }
             if (finalType === 'peach' && (p.hp >= p.maxHp)) { alert("您目前為滿血狀態，無法吃【桃】！"); return; }
 
-            var cName = getCardNameChinese(finalType);
+            var cName = (finalType === 'kill' && card.displayType !== 'kill') ? '殺（武聖）' : getCardNameChinese(finalType);
 
-            if (['kill', 'bridge', 'snatch', 'duel'].includes(finalType)) {
+            if (['kill', 'bridge', 'snatch', 'duel', 'jiedao', 'lebu'].includes(finalType)) {
                 gState.isSelectingTarget = true;
                 gState.targetSelectCardIdx = selIdx;
                 gState.targetSelectCardType = finalType;
                 gState.targetSelectCardName = cName;
+                if (finalType === 'jiedao') {
+                    gState.jiedaoStep = 'pickWielder'; // 借刀第一步：選持刀者
+                    gState.jiedaoWielder = -1;
+                }
                 updateCloud();
                 return; 
+            }
+
+            // 閃電：延時錦囊，放到「自己」的判定區（之後會在判定後移到下家）
+            if (finalType === 'shandian') {
+                // 檢查自己判定區是否已有閃電（同名延時錦囊不重複放）
+                var hasShandian = (p.judgeZone || []).some(function(c){ return c.displayType === 'shandian'; });
+                if (hasShandian) { alert("你的判定區已經有一張【閃電】了！"); return; }
+                p.hand.splice(selIdx, 1);
+                p.selectedIndex = -1;
+                if (!p.judgeZone) p.judgeZone = [];
+                p.judgeZone.push(card);
+                recordPlayedCard(card, p.id);
+                gState.gameLogHtml += "<br>⚡ 【玩家 " + p.id + "】 將【閃電】放置在自己的判定區。";
+                updateCloud();
+                return;
+            }
+
+            // 裝備牌：穿到裝備區（武器/防具），原本裝備換下進棄牌堆
+            if (isEquipType(finalType)) {
+                var def = getEquipDef(finalType);
+                if (!p.equip) p.equip = { weapon: null, armor: null };
+                p.hand.splice(selIdx, 1);
+                if (!gState.discardPile) gState.discardPile = [];
+                p.selectedIndex = -1;
+                recordPlayedCard(card, p.id);
+                // 換下同格舊裝備
+                var oldKey = p.equip[def.slot];
+                if (oldKey) {
+                    var oldCard = p.equip[def.slot + 'Card'];
+                    if (oldCard) gState.discardPile.push(oldCard);
+                    gState.gameLogHtml += "<br>🔧 【玩家 " + p.id + "】 換下了【" + (getEquipDef(oldKey) ? getEquipDef(oldKey).name : '裝備') + "】。";
+                }
+                p.equip[def.slot] = finalType;
+                p.equip[def.slot + 'Card'] = card; // 保存牌物件(換下時可棄)
+                gState.gameLogHtml += "<br>🛡️ 【玩家 " + p.id + "】 裝備了【" + def.name + "】！";
+                updateCloud();
+                return;
             }
 
             p.hand.splice(selIdx, 1);
@@ -1507,23 +1967,59 @@
         function executeCardEffectWithTarget(pIdx, cardIdx, targetIdx) {
             var p = gState.playersData[pIdx];
             var targetP = gState.playersData[targetIdx];
-            var card = p.hand[cardIdx];
             var finalType = gState.targetSelectCardType;
             var cName = gState.targetSelectCardName;
+
+            // 丈八蛇矛虛擬殺：cardIdx === -1，牌已在 pickZhangbaSecond 棄掉，不從手牌取
+            if (cardIdx === -1 && gState.zhangbaKillCard) {
+                var zbCard = gState.zhangbaKillCard;
+                gState.zhangbaKillCard = null;
+                gState.isSelectingTarget = false;
+                p.selectedIndex = -1;
+                cancelTargetSelection();
+                gState.gameLogHtml += "<br>⚔️ 【玩家 " + p.id + "】 對 【玩家 " + targetP.id + "】 使用了【殺（丈八蛇矛）】！";
+                askForDodge(pIdx, targetIdx, zbCard);
+                updateCloud();
+                return;
+            }
+
+            var card = p.hand[cardIdx];
 
             gState.isSelectingTarget = false;
             p.hand.splice(cardIdx, 1);
             if(!gState.discardPile) gState.discardPile = [];
-            gState.discardPile.push(card);
             p.selectedIndex = -1;
             cancelTargetSelection();
             recordPlayedCard(card, p.id); // 觸發出牌動畫
+
+            // 樂不思蜀：延時錦囊，不進棄牌堆，先問無懈，通過後放到目標判定區
+            if (finalType === 'lebu') {
+                var hasLebu = (targetP.judgeZone || []).some(function(c){ return c.displayType === 'lebu'; });
+                if (hasLebu) {
+                    alert("該玩家判定區已有【樂不思蜀】！");
+                    p.hand.push(card); // 退回手牌
+                    updateCloud();
+                    return;
+                }
+                gState.gameLogHtml += "<br>🎭 【玩家 " + p.id + "】 對 【玩家 " + targetP.id + "】 使用了【樂不思蜀】！";
+                startWuxieQuery({
+                    sourceIdx: pIdx,
+                    targetIdx: targetIdx,
+                    cardName: '樂不思蜀',
+                    trickType: 'lebu',
+                    extra: { card: card }
+                });
+                updateCloud();
+                return;
+            }
+
+            gState.discardPile.push(card);
 
             if (finalType === 'kill') {
                 // 【殺】不是錦囊，不能被無懈，直接進入「等對方出閃」
                 gState.hasUsedKillThisTurn = true;
                 gState.gameLogHtml += "<br>⚔️ 【玩家 " + p.id + "】 對 【玩家 " + targetP.id + "】 使用了【" + cName + "】！";
-                askForDodge(pIdx, targetIdx);
+                askForDodge(pIdx, targetIdx, card); // 傳殺的牌物件供仁王盾判斷顏色
             }
             else if (finalType === 'duel') {
                 // 決鬥為錦囊，先問無懈；通過後由「目標方」先出殺
@@ -1637,6 +2133,11 @@
             if (ctx.wuxieParity === 1) {
                 // 被無懈抵消，效果作廢
                 gState.gameLogHtml += "<br>🚫 錦囊【" + ctx.cardName + "】最終被【無懈可擊】抵消，未生效。";
+                // 延時錦囊（樂不思蜀）被無懈抵消時，牌進棄牌堆
+                if (ctx.trickType === 'lebu' && ctx.extra && ctx.extra.card) {
+                    if (!gState.discardPile) gState.discardPile = [];
+                    gState.discardPile.push(ctx.extra.card);
+                }
                 postEffectCleanup(ctx.sourceIdx);
                 return;
             }
@@ -1677,6 +2178,47 @@
             else if (ctx.trickType === 'duel') {
                 // 進入決鬥：目標方先出殺
                 beginDuel(ctx.sourceIdx, ctx.targetIdx);
+            }
+            else if (ctx.trickType === 'lebu') {
+                // 樂不思蜀：無懈通過後放到目標判定區
+                var lbTarget = gState.playersData[ctx.targetIdx];
+                if (lbTarget && lbTarget.isAlive && ctx.extra && ctx.extra.card) {
+                    if (!lbTarget.judgeZone) lbTarget.judgeZone = [];
+                    lbTarget.judgeZone.push(ctx.extra.card);
+                    gState.gameLogHtml += "<br>🎭 【樂不思蜀】已置入【玩家 " + lbTarget.id + "】的判定區。";
+                } else if (ctx.extra && ctx.extra.card) {
+                    gState.discardPile.push(ctx.extra.card); // 目標沒了就棄掉
+                }
+                postEffectCleanup(ctx.sourceIdx);
+            }
+            else if (ctx.trickType === 'jiedao') {
+                // 借刀殺人生效：問持刀者要不要出殺攻擊被害者
+                var wielderIdx = ctx.extra.wielderIdx, victimIdx = ctx.extra.victimIdx;
+                var wielder = gState.playersData[wielderIdx];
+                // 持刀者武器可能已沒了（中途被拆），或持刀者/被害者已陣亡 → 效果落空
+                if (!wielder || !wielder.isAlive || !wielder.equip || !wielder.equip.weapon
+                    || !gState.playersData[victimIdx] || !gState.playersData[victimIdx].isAlive) {
+                    gState.gameLogHtml += "<br>（借刀殺人效果落空。）";
+                    postEffectCleanup(ctx.sourceIdx);
+                    return;
+                }
+                // 持刀者沒有可用的殺 → 直接交武器給發動者
+                if (findUsableKillIndex(wielderIdx) === -1) {
+                    giveJiedaoWeapon(wielderIdx, ctx.sourceIdx);
+                    postEffectCleanup(ctx.sourceIdx);
+                    return;
+                }
+                // 問持刀者：出殺 or 交武器
+                gState.pending = {
+                    kind: 'jiedao',
+                    responderIdx: wielderIdx,
+                    sourceIdx: ctx.sourceIdx,
+                    targetIdx: victimIdx,
+                    cardName: '借刀殺人',
+                    ctx: { wielderIdx: wielderIdx, victimIdx: victimIdx }
+                };
+                updateCloud();
+                return;
             }
             else if (ctx.trickType === 'bridge' || ctx.trickType === 'snatch') {
                 var targetP = gState.playersData[ctx.targetIdx];
@@ -1743,7 +2285,9 @@
             var needType = (st.trickType === 'nanman') ? 'kill' : 'dodge';
             var needName = (st.trickType === 'nanman') ? '殺' : '閃';
             if (!targetP.hand) targetP.hand = [];
-            var hasCard = targetP.hand.some(function(c){ return c.displayType === needType; });
+            // 南蠻找可用的殺（含武聖紅牌）、萬箭找可用的閃
+            var usableIdx = (needType === 'kill') ? findUsableKillIndex(targetIdx) : findUsableDodgeIndex(targetIdx);
+            var hasCard = usableIdx > -1;
             if (!hasCard) {
                 // 沒有對應牌可出，直接受傷
                 gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 沒有【" + needName + "】可用，受到 1 點傷害！";
@@ -1777,15 +2321,28 @@
             var targetIdx = pend.targetIdx;
             var targetP = gState.playersData[targetIdx];
             var st = gState.aoeState;
+
+            // 南蠻入侵時，若關羽有多於一張「可當殺」的牌，讓他點手牌選要出哪張
+            if (useIt && pend.needType === 'kill' && playerHasSkill(targetIdx, 'guanyu')) {
+                var usableList = listUsableKillIndices(targetIdx);
+                if (usableList.length > 1) {
+                    pend.awaitKillPick = true;
+                    gState.gameLogHtml += "<br>🗡️ 【玩家 " + targetP.id + "】（武聖）請點選一張手牌作為【殺】。";
+                    updateCloud();
+                    return;
+                }
+            }
+
             gState.pending = null;
 
             if (useIt) {
-                var idx = targetP.hand.findIndex(function(c){ return c.displayType === pend.needType; });
+                var idx = (pend.needType === 'kill') ? findUsableKillIndex(targetIdx) : findUsableDodgeIndex(targetIdx);
                 if (idx > -1) {
                     var usedCard = targetP.hand.splice(idx, 1)[0];
                     gState.discardPile.push(usedCard);
                     recordPlayedCard(usedCard, targetP.id);
-                    gState.gameLogHtml += "<br>🛡️ 【玩家 " + targetP.id + "】 打出【" + pend.cardName + "】抵消了傷害。";
+                    var asWS = (usedCard.displayType !== pend.needType);
+                    gState.gameLogHtml += "<br>🛡️ 【玩家 " + targetP.id + "】 打出【" + pend.cardName + "】" + (asWS ? "（武聖）" : "") + "抵消了傷害。";
                 }
             } else {
                 gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 選擇不出【" + pend.cardName + "】，受到 1 點傷害！";
@@ -1803,20 +2360,86 @@
             updateCloud();
         }
 
+        // 關羽南蠻時點選一張手牌作為殺（awaitKillPick 模式下，由 selectCard 轉呼叫）
+        function pickAoeKillCard(pIdx, cardIdx) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'aoe' || !pend.awaitKillPick) return false;
+            if (myPlayerIdx !== pend.responderIdx) return false;
+            var targetIdx = pend.targetIdx;
+            if (pIdx !== targetIdx) return false;
+            if (!canCardBeKill(targetIdx, cardIdx)) {
+                alert("這張牌不能當作【殺】使用，請選擇一張殺，或紅色手牌（武聖）。");
+                return true;
+            }
+            var targetP = gState.playersData[targetIdx];
+            var st = gState.aoeState;
+            var usedCard = targetP.hand.splice(cardIdx, 1)[0];
+            gState.discardPile.push(usedCard);
+            recordPlayedCard(usedCard, targetP.id);
+            var asWS = (usedCard.displayType !== 'kill');
+            gState.gameLogHtml += "<br>🛡️ 【玩家 " + targetP.id + "】 打出【殺】" + (asWS ? "（武聖）" : "") + "抵消了南蠻入侵。";
+            gState.pending = null;
+            targetP.selectedIndex = -1;
+            // 繼續處理 AOE 佇列
+            if (st) {
+                st.pos++;
+                askNextAoeTarget();
+            }
+            updateCloud();
+            return true;
+        }
+
         // =====================================================================
         //  待回應流程：殺 → 等對方出閃
         // =====================================================================
-        function askForDodge(sourceIdx, targetIdx) {
+        function askForDodge(sourceIdx, targetIdx, killCard) {
             var targetP = gState.playersData[targetIdx];
             if (!targetP.hand) targetP.hand = [];
-            var hasDodge = targetP.hand.some(function(c){ return c.displayType === 'dodge'; });
-            if (!hasDodge) {
-                // 沒有閃可出，直接結算傷害
-                gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 沒有【閃】可用，受到 1 點傷害！";
-                damagePlayerBackend(targetIdx, 1);
-                checkWinConditionBackend();
-                if (gState.pending && gState.pending.kind === 'peach') { return; }
+
+            // 【青釭劍】：攻擊方裝青釭劍時，無視對方防具（仁王盾、八卦陣失效）
+            var srcP = gState.playersData[sourceIdx];
+            var ignoreArmor = srcP && srcP.equip && srcP.equip.weapon === 'qinggang';
+            if (ignoreArmor) {
+                gState.gameLogHtml += "<br>🗡️ 【青釭劍】發動！無視【玩家 " + targetP.id + "】的防具。";
+            }
+
+            // 【仁王盾】：黑色的殺對你無效（直接免疫，不需出閃）
+            if (!ignoreArmor && targetP.equip && targetP.equip.armor === 'renwang' && killCard && killCard.colorClass === 'black-suit') {
+                gState.gameLogHtml += "<br>🛡️ 【仁王盾】發動！黑色【殺】對【玩家 " + targetP.id + "】無效。";
                 postEffectCleanup(sourceIdx);
+                return;
+            }
+
+            // 【八卦陣】：判定，紅色視為已出閃（自動閃避）
+            if (!ignoreArmor && targetP.equip && targetP.equip.armor === 'bagua') {
+                var judge = drawJudgeCard();
+                var isRed = judge && judge.colorClass === 'red-suit';
+                gState.gameLogHtml += "<br>☯️ 【八卦陣】判定：" + (judge ? judge.suit + judge.name : '?') + " → " + (isRed ? "紅色，視為【閃】，成功閃避！" : "黑色，判定失敗。");
+                if (isRed) {
+                    // 八卦陣判定出的閃，一樣會觸發青龍偃月刀追殺（可連續追殺）
+                    if (tryGreenDragonChase(sourceIdx, targetIdx)) { return; }
+                    postEffectCleanup(sourceIdx);
+                    return;
+                }
+            }
+
+            // 馬超【鐵騎】：馬超使用殺時，目標需要多出一張閃（共 2 張）才能抵消
+            var needDodge = (srcP && playerHasSkill(sourceIdx, 'machao')) ? 2 : 1;
+            // 計算目標實際有幾張可用的閃
+            var dodgeCount = 0;
+            if (targetP.hand) {
+                for (var di = 0; di < targetP.hand.length; di++) {
+                    if (targetP.hand[di].displayType === 'dodge') dodgeCount++;
+                }
+            }
+            if (dodgeCount < needDodge) {
+                // 閃不足，殺命中（寒冰劍可能攔截）
+                if (needDodge > 1) {
+                    gState.gameLogHtml += "<br>🐎 【鐵騎】【玩家 " + targetP.id + "】 的【閃】不足 " + needDodge + " 張，【殺】命中！";
+                } else {
+                    gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 沒有【閃】可用，【殺】命中！";
+                }
+                resolveKillHit(sourceIdx, targetIdx);
                 return;
             }
             gState.pending = {
@@ -1825,8 +2448,27 @@
                 sourceIdx: sourceIdx,
                 targetIdx: targetIdx,
                 cardName: '殺',
+                needDodge: needDodge,   // 需要出幾張閃（鐵騎=2）
+                dodgeDone: 0,           // 已出幾張閃
                 ctx: {}
             };
+        }
+
+        // 判定牌：從牌堆翻一張（用後進棄牌堆），回傳該牌
+        function drawJudgeCard() {
+            if (!gState.deck) gState.deck = [];
+            if (gState.deck.length === 0) {
+                if (!gState.discardPile || gState.discardPile.length === 0) return null;
+                gState.deck = gState.discardPile.slice();
+                gState.discardPile = [];
+                for (var k = gState.deck.length - 1; k > 0; k--) {
+                    var j = Math.floor(Math.random() * (k + 1));
+                    var t = gState.deck[k]; gState.deck[k] = gState.deck[j]; gState.deck[j] = t;
+                }
+            }
+            var jc = gState.deck.pop();
+            if (jc) { if (!gState.discardPile) gState.discardPile = []; gState.discardPile.push(jc); }
+            return jc;
         }
 
         // 玩家對「出閃」詢問做選擇
@@ -1839,22 +2481,301 @@
             var targetIdx = pend.targetIdx;
 
             if (useIt) {
-                var dIdx = targetP.hand.findIndex(function(c){ return c.displayType === 'dodge'; });
+                var dIdx = findUsableDodgeIndex(pend.targetIdx);
                 if (dIdx > -1) {
                     var dCard = targetP.hand.splice(dIdx, 1)[0];
                     gState.discardPile.push(dCard);
                     recordPlayedCard(dCard, targetP.id); // 觸發出牌動畫
+                    pend.dodgeDone = (pend.dodgeDone || 0) + 1;
+                    var need = pend.needDodge || 1;
+                    if (pend.dodgeDone < need) {
+                        // 鐵騎：還需要再出閃，繼續問（檢查還有沒有閃）
+                        if (findUsableDodgeIndex(pend.targetIdx) === -1) {
+                            // 沒閃了 → 殺命中
+                            gState.gameLogHtml += "<br>🐎 【鐵騎】【玩家 " + targetP.id + "】 出了 " + pend.dodgeDone + " 張【閃】但不足 " + need + " 張，【殺】命中！";
+                            gState.pending = null;
+                            resolveKillHit(sourceIdx, targetIdx);
+                            updateCloud();
+                            return;
+                        }
+                        gState.gameLogHtml += "<br>🛡️ 【玩家 " + targetP.id + "】 打出第 " + pend.dodgeDone + " 張【閃】，【鐵騎】還需再出 " + (need - pend.dodgeDone) + " 張！";
+                        updateCloud();
+                        return; // pending 保留，繼續等下一張閃
+                    }
                     gState.gameLogHtml += "<br>🛡️ 【玩家 " + targetP.id + "】 打出了【閃】，成功抵消【殺】！";
                 }
                 gState.pending = null;
+                // 【貫石斧】：殺被閃後，可棄兩張牌讓此殺強制命中（優先於青龍刀詢問）
+                var srcGS = gState.playersData[sourceIdx];
+                if (srcGS && srcGS.isAlive && srcGS.equip && srcGS.equip.weapon === 'guanshi'
+                    && srcGS.hand && srcGS.hand.length >= 2 && targetP.isAlive) {
+                    gState.pending = {
+                        kind: 'guanshi',
+                        responderIdx: sourceIdx,
+                        sourceIdx: sourceIdx,
+                        targetIdx: targetIdx,
+                        cardName: '貫石斧',
+                        ctx: {}
+                    };
+                    gState.gameLogHtml += "<br>🪓 【貫石斧】：【玩家 " + srcGS.id + "】 可棄兩張牌讓此【殺】強制命中！";
+                    updateCloud();
+                    return;
+                }
+                // 【青龍偃月刀】：殺被閃抵消後可追加一張殺，追加的殺被閃還能再追（連續追殺）
+                if (tryGreenDragonChase(sourceIdx, targetIdx)) { updateCloud(); return; }
                 postEffectCleanup(sourceIdx);
             } else {
-                gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 選擇不閃，受到 1 點傷害！";
+                gState.gameLogHtml += "<br>💥 【玩家 " + targetP.id + "】 選擇不閃，【殺】命中！";
                 gState.pending = null;          // 先清掉 dodge pending
-                damagePlayerBackend(targetIdx, 1); // 可能設置 peach pending
-                checkWinConditionBackend();
-                postEffectCleanup(sourceIdx);    // 若為 peach pending 會自動停住
+                resolveKillHit(sourceIdx, targetIdx); // 寒冰劍可能攔截，否則造成傷害
             }
+        }
+
+        // 殺命中目標時的結算：寒冰劍可改為棄兩牌不傷害，否則造成 1 點傷害
+        function resolveKillHit(sourceIdx, targetIdx) {
+            var srcP = gState.playersData[sourceIdx];
+            var tgtP = gState.playersData[targetIdx];
+            // 【寒冰劍】：攻擊方有寒冰劍、且對方有手牌 → 詢問攻擊方要傷害還是棄兩牌
+            if (srcP && srcP.equip && srcP.equip.weapon === 'hanbing'
+                && tgtP && tgtP.isAlive && tgtP.hand && tgtP.hand.length > 0) {
+                gState.pending = {
+                    kind: 'hanbing',
+                    responderIdx: sourceIdx,
+                    sourceIdx: sourceIdx,
+                    targetIdx: targetIdx,
+                    cardName: '寒冰劍',
+                    ctx: {}
+                };
+                gState.gameLogHtml += "<br>❄️ 【寒冰劍】：【玩家 " + srcP.id + "】 可改為棄掉對方兩張牌（不造成傷害）。";
+                updateCloud();
+                return;
+            }
+            // 一般情況：造成 1 點傷害
+            damagePlayerBackend(targetIdx, 1);
+            checkWinConditionBackend();
+            if (gState.pending && gState.pending.kind === 'peach') { return; }
+            postEffectCleanup(sourceIdx);
+        }
+
+        // 寒冰劍：攻擊方選擇造成傷害 或 棄對方兩張牌
+        function respondHanbing(useIt) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'hanbing') return;
+            if (myPlayerIdx !== pend.responderIdx) return;
+            var sourceIdx = pend.sourceIdx, targetIdx = pend.targetIdx;
+            var tgtP = gState.playersData[targetIdx];
+            gState.pending = null;
+
+            if (useIt) {
+                // 棄對方最多兩張牌（不造成傷害）
+                var n = Math.min(2, tgtP.hand.length);
+                if (!gState.discardPile) gState.discardPile = [];
+                for (var k = 0; k < n; k++) {
+                    var c = tgtP.hand.shift();
+                    if (c) gState.discardPile.push(c);
+                }
+                gState.gameLogHtml += "<br>❄️ 【寒冰劍】發動！棄掉【玩家 " + tgtP.id + "】 " + n + " 張牌，不造成傷害。";
+                postEffectCleanup(sourceIdx);
+            } else {
+                // 照常造成傷害
+                damagePlayerBackend(targetIdx, 1);
+                checkWinConditionBackend();
+                if (gState.pending && gState.pending.kind === 'peach') { updateCloud(); return; }
+                postEffectCleanup(sourceIdx);
+            }
+            updateCloud();
+        }
+
+        // 嘗試觸發青龍偃月刀追殺：出殺者裝青龍刀、還有可用的殺、目標仍存活 → 設置追殺 pending。
+        // 回傳 true 表示已設置追殺（呼叫端應停住等待回應）；false 表示不追殺。
+        function tryGreenDragonChase(sourceIdx, targetIdx) {
+            var srcP = gState.playersData[sourceIdx];
+            var tgtP = gState.playersData[targetIdx];
+            if (srcP && srcP.isAlive && srcP.equip && srcP.equip.weapon === 'greendragon'
+                && findUsableKillIndex(sourceIdx) > -1 && tgtP && tgtP.isAlive) {
+                gState.pending = {
+                    kind: 'greendragon',
+                    responderIdx: sourceIdx,
+                    sourceIdx: sourceIdx,
+                    targetIdx: targetIdx,
+                    cardName: '青龍偃月刀',
+                    ctx: {}
+                };
+                gState.gameLogHtml += "<br>🐉 【青龍偃月刀】：【玩家 " + srcP.id + "】 可以追加一張【殺】！";
+                return true;
+            }
+            return false;
+        }
+
+        // 貫石斧：出殺者選擇是否棄兩張牌讓殺強制命中
+        function respondGuanshi(useIt) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'guanshi') return;
+            if (myPlayerIdx !== pend.responderIdx) return;
+            var sourceIdx = pend.sourceIdx, targetIdx = pend.targetIdx;
+            var srcP = gState.playersData[sourceIdx];
+
+            if (!useIt) {
+                // 不發動 → 殺被閃掉，看是否還有青龍刀追殺
+                gState.pending = null;
+                if (tryGreenDragonChase(sourceIdx, targetIdx)) { updateCloud(); return; }
+                postEffectCleanup(sourceIdx);
+                updateCloud();
+                return;
+            }
+            // 發動：棄掉手牌最前兩張，殺強制命中（直接造成傷害）
+            if (!srcP.hand || srcP.hand.length < 2) {
+                // 牌不夠了，視為放棄
+                gState.pending = null;
+                postEffectCleanup(sourceIdx);
+                updateCloud();
+                return;
+            }
+            var d1 = srcP.hand.shift();
+            var d2 = srcP.hand.shift();
+            if (!gState.discardPile) gState.discardPile = [];
+            gState.discardPile.push(d1); gState.discardPile.push(d2);
+            gState.gameLogHtml += "<br>🪓 【玩家 " + srcP.id + "】 棄兩張牌發動【貫石斧】，【殺】強制命中【玩家 " + gState.playersData[targetIdx].id + "】！";
+            gState.pending = null;
+            damagePlayerBackend(targetIdx, 1);
+            checkWinConditionBackend();
+            postEffectCleanup(sourceIdx);
+            updateCloud();
+        }
+
+        // 借刀殺人：持刀者把武器交給發動者
+        function giveJiedaoWeapon(wielderIdx, sourceIdx) {
+            var wielder = gState.playersData[wielderIdx];
+            var src = gState.playersData[sourceIdx];
+            if (!wielder.equip || !wielder.equip.weapon) return;
+            var wKey = wielder.equip.weapon;
+            var wCard = wielder.equip.weaponCard;
+            wielder.equip.weapon = null;
+            wielder.equip.weaponCard = null;
+            if (wCard) { if (!src.hand) src.hand = []; src.hand.push(wCard); }
+            var wName = getEquipDef(wKey) ? getEquipDef(wKey).name : '武器';
+            gState.gameLogHtml += "<br>🔧 【玩家 " + wielder.id + "】 不出殺，將【" + wName + "】交給了【玩家 " + src.id + "】。";
+        }
+
+        // 借刀殺人：持刀者選擇出殺攻擊被害者，或交出武器
+        function respondJiedao(useIt) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'jiedao') return;
+            if (myPlayerIdx !== pend.responderIdx) return;
+            var wielderIdx = pend.ctx.wielderIdx, victimIdx = pend.ctx.victimIdx;
+            var sourceIdx = pend.sourceIdx;
+            var wielder = gState.playersData[wielderIdx];
+
+            if (!useIt) {
+                gState.pending = null;
+                giveJiedaoWeapon(wielderIdx, sourceIdx);
+                postEffectCleanup(sourceIdx);
+                updateCloud();
+                return;
+            }
+            var usableList = listUsableKillIndices(wielderIdx);
+            if (playerHasSkill(wielderIdx, 'guanyu') && usableList.length > 1) {
+                pend.awaitKillPick = true;
+                gState.gameLogHtml += "<br>🗡️ 【玩家 " + wielder.id + "】（武聖）請點選一張手牌作為【殺】。";
+                updateCloud();
+                return;
+            }
+            var kIdx = findUsableKillIndex(wielderIdx);
+            var kCard = null;
+            if (kIdx > -1) {
+                kCard = wielder.hand.splice(kIdx, 1)[0];
+                gState.discardPile.push(kCard);
+                recordPlayedCard(kCard, wielder.id);
+                var asWS = (kCard.displayType !== 'kill');
+                gState.gameLogHtml += "<br>🗡️ 【玩家 " + wielder.id + "】 借刀出【殺】" + (asWS ? "（武聖）" : "") + " 攻擊【玩家 " + gState.playersData[victimIdx].id + "】！";
+            }
+            gState.pending = null;
+            askForDodge(wielderIdx, victimIdx, kCard);
+            updateCloud();
+        }
+
+        // 借刀殺人點牌（關羽武聖持刀者多張可選）
+        function pickJiedaoKillCard(pIdx, cardIdx) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'jiedao' || !pend.awaitKillPick) return false;
+            if (myPlayerIdx !== pend.responderIdx) return false;
+            var wielderIdx = pend.ctx.wielderIdx, victimIdx = pend.ctx.victimIdx;
+            if (pIdx !== wielderIdx) return false;
+            if (!canCardBeKill(wielderIdx, cardIdx)) { alert("這張牌不能當作【殺】使用。"); return true; }
+            var wielder = gState.playersData[wielderIdx];
+            var kCard = wielder.hand.splice(cardIdx, 1)[0];
+            gState.discardPile.push(kCard);
+            recordPlayedCard(kCard, wielder.id);
+            var asWS = (kCard.displayType !== 'kill');
+            gState.gameLogHtml += "<br>🗡️ 【玩家 " + wielder.id + "】 借刀出【殺】" + (asWS ? "（武聖）" : "") + " 攻擊【玩家 " + gState.playersData[victimIdx].id + "】！";
+            gState.pending = null;
+            wielder.selectedIndex = -1;
+            askForDodge(wielderIdx, victimIdx, kCard);
+            updateCloud();
+            return true;
+        }
+
+        // 青龍偃月刀追殺：出殺者決定是否追加一張殺
+        function respondGreenDragon(useIt) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'greendragon') return;
+            if (myPlayerIdx !== pend.responderIdx) return;
+            var sourceIdx = pend.sourceIdx, targetIdx = pend.targetIdx;
+            var srcP = gState.playersData[sourceIdx];
+
+            if (!useIt) {
+                // 放棄追殺
+                gState.gameLogHtml += "<br>🐉 【玩家 " + srcP.id + "】 放棄青龍刀追殺。";
+                gState.pending = null;
+                postEffectCleanup(sourceIdx);
+                updateCloud();
+                return;
+            }
+
+            // 要追殺：若有多張可當殺的牌（關羽武聖），進入點牌模式
+            var usableList = listUsableKillIndices(sourceIdx);
+            if (playerHasSkill(sourceIdx, 'guanyu') && usableList.length > 1) {
+                pend.awaitKillPick = true;
+                gState.gameLogHtml += "<br>🗡️ 【玩家 " + srcP.id + "】（武聖）請點選一張手牌作為追加的【殺】。";
+                updateCloud();
+                return;
+            }
+            // 只有一張可用 → 直接出
+            var kIdx = findUsableKillIndex(sourceIdx);
+            if (kIdx > -1) {
+                var kCard = srcP.hand.splice(kIdx, 1)[0];
+                gState.discardPile.push(kCard);
+                recordPlayedCard(kCard, srcP.id);
+                var asWS = (kCard.displayType !== 'kill');
+                gState.gameLogHtml += "<br>🐉 【玩家 " + srcP.id + "】 青龍刀追加一張【殺】" + (asWS ? "（武聖）" : "") + "！";
+            }
+            gState.pending = null;
+            askForDodge(sourceIdx, targetIdx, kCard); // 再次要對方出閃（被閃後仍可繼續追殺）
+            updateCloud();
+        }
+
+        // 青龍刀追殺點牌（關羽武聖多張可選時）
+        function pickGreenDragonKillCard(pIdx, cardIdx) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'greendragon' || !pend.awaitKillPick) return false;
+            if (myPlayerIdx !== pend.responderIdx) return false;
+            var sourceIdx = pend.sourceIdx, targetIdx = pend.targetIdx;
+            if (pIdx !== sourceIdx) return false;
+            if (!canCardBeKill(sourceIdx, cardIdx)) {
+                alert("這張牌不能當作【殺】使用。");
+                return true;
+            }
+            var srcP = gState.playersData[sourceIdx];
+            var kCard = srcP.hand.splice(cardIdx, 1)[0];
+            gState.discardPile.push(kCard);
+            recordPlayedCard(kCard, srcP.id);
+            var asWS = (kCard.displayType !== 'kill');
+            gState.gameLogHtml += "<br>🐉 【玩家 " + srcP.id + "】 青龍刀追加一張【殺】" + (asWS ? "（武聖）" : "") + "！";
+            gState.pending = null;
+            srcP.selectedIndex = -1;
+            askForDodge(sourceIdx, targetIdx, kCard); // 被閃後仍可繼續追殺
+            updateCloud();
+            return true;
         }
 
         // =====================================================================
@@ -1869,7 +2790,7 @@
         function askDuelKill(sourceIdx, targetIdx, whoseTurnIdx) {
             var actor = gState.playersData[whoseTurnIdx];
             if (!actor.hand) actor.hand = [];
-            var hasKill = actor.hand.some(function(c){ return c.displayType === 'kill'; });
+            var hasKill = findUsableKillIndex(whoseTurnIdx) > -1; // 含關羽武聖紅牌當殺
             if (!hasKill) {
                 // 出不了殺 → 受傷，決鬥結束
                 gState.gameLogHtml += "<br>🏹 【玩家 " + actor.id + "】 打不出【殺】，決鬥落敗受到 1 點傷害！";
@@ -1904,12 +2825,23 @@
             var actor = gState.playersData[whoseTurnIdx];
 
             if (useIt) {
-                var kIdx = actor.hand.findIndex(function(c){ return c.displayType === 'kill'; });
+                // 關羽武聖：若有多於一張「可當殺」的牌，讓玩家自己點選要用哪張
+                var usableList = listUsableKillIndices(whoseTurnIdx);
+                if (playerHasSkill(whoseTurnIdx, 'guanyu') && usableList.length > 1) {
+                    // 進入「點手牌選一張當殺」模式（不立即出牌）
+                    pend.awaitKillPick = true;
+                    gState.gameLogHtml += "<br>🗡️ 【玩家 " + actor.id + "】（武聖）請點選一張手牌作為【殺】。";
+                    updateCloud();
+                    return;
+                }
+                // 只有一張可用（或非關羽）→ 直接出
+                var kIdx = findUsableKillIndex(whoseTurnIdx);
                 if (kIdx > -1) {
                     var kCard = actor.hand.splice(kIdx, 1)[0];
                     gState.discardPile.push(kCard);
                     recordPlayedCard(kCard, actor.id); // 觸發出牌動畫
-                    gState.gameLogHtml += "<br>🗡️ 【玩家 " + actor.id + "】 在決鬥中打出一張【殺】！";
+                    var asWusheng = (kCard.displayType !== 'kill');
+                    gState.gameLogHtml += "<br>🗡️ 【玩家 " + actor.id + "】 在決鬥中打出一張【殺】" + (asWusheng ? "（武聖）" : "") + "！";
                 }
                 gState.pending = null;
                 // 換對方出殺
@@ -1930,6 +2862,34 @@
                 }
                 updateCloud();
             }
+        }
+
+        // 關羽決鬥時點選一張手牌作為殺（awaitKillPick 模式下，由 selectCard 轉呼叫）
+        function pickDuelKillCard(pIdx, cardIdx) {
+            var pend = gState.pending;
+            if (!pend || pend.kind !== 'duel' || !pend.awaitKillPick) return false;
+            if (myPlayerIdx !== pend.responderIdx) return false;
+            var whoseTurnIdx = pend.ctx.whoseTurnIdx;
+            if (pIdx !== whoseTurnIdx) return false;
+            // 驗證這張牌可以當殺
+            if (!canCardBeKill(whoseTurnIdx, cardIdx)) {
+                alert("這張牌不能當作【殺】使用，請選擇一張殺，或紅色手牌（武聖）。");
+                return true; // 已處理（攔截），但不出牌
+            }
+            var actor = gState.playersData[whoseTurnIdx];
+            var sourceIdx = pend.sourceIdx, targetIdx = pend.targetIdx;
+            var kCard = actor.hand.splice(cardIdx, 1)[0];
+            gState.discardPile.push(kCard);
+            recordPlayedCard(kCard, actor.id);
+            var asWusheng = (kCard.displayType !== 'kill');
+            gState.gameLogHtml += "<br>🗡️ 【玩家 " + actor.id + "】 在決鬥中打出一張【殺】" + (asWusheng ? "（武聖）" : "") + "！";
+            gState.pending = null;
+            actor.selectedIndex = -1;
+            // 換對方出殺
+            var nextIdx = (whoseTurnIdx === sourceIdx) ? targetIdx : sourceIdx;
+            askDuelKill(sourceIdx, targetIdx, nextIdx);
+            updateCloud();
+            return true;
         }
 
         // 效果結算完成後的統一收尾（檢查發動方是否陣亡需交棒）
@@ -2000,7 +2960,13 @@
                 if (ctx.declined[idx]) continue;          // 這輪已拒絕，略過
                 var pp = gState.playersData[idx];
                 if (!pp.isAlive || !pp.hand) continue;
-                var hasPeach = pp.hand.some(function(c){ return c.displayType === 'peach'; });
+                // 真桃誰都能出；華佗用紅牌當桃僅限「救自己」（idx===瀕死者）
+                var hasPeach;
+                if (idx === ctx.dyingIdx) {
+                    hasPeach = findUsablePeachIndex(idx) > -1; // 含華佗紅牌自救
+                } else {
+                    hasPeach = pp.hand.some(function(c){ return c.displayType === 'peach'; });
+                }
                 if (hasPeach) {
                     gState.pending = {
                         kind: 'peach',
@@ -2028,13 +2994,20 @@
             var dying = gState.playersData[ctx.dyingIdx];
 
             if (useIt) {
-                var peachIdx = responder.hand.findIndex(function(c){ return c.displayType === 'peach'; });
+                // 救自己時華佗可用紅牌；救別人只能用真桃
+                var peachIdx;
+                if (pend.responderIdx === ctx.dyingIdx) {
+                    peachIdx = findUsablePeachIndex(pend.responderIdx); // 含華佗紅牌自救
+                } else {
+                    peachIdx = responder.hand.findIndex(function(c){ return c.displayType === 'peach'; });
+                }
                 if (peachIdx > -1) {
                     var peachCard = responder.hand.splice(peachIdx, 1)[0];
                     gState.discardPile.push(peachCard);
                     recordPlayedCard(peachCard, responder.id); // 觸發出牌動畫
                     healPlayerBackend(ctx.dyingIdx, 1);
-                    gState.gameLogHtml += "<br>💖 【玩家 " + responder.id + "】 打出【桃】，【玩家 " + dying.id + "】血量回升至 " + dying.hp + "。";
+                    var asHuatuo = (peachCard.displayType !== 'peach');
+                    gState.gameLogHtml += "<br>💖 【玩家 " + responder.id + "】 打出【桃】" + (asHuatuo ? "（急救）" : "") + "，【玩家 " + dying.id + "】血量回升至 " + dying.hp + "。";
                 }
                 // 出桃後局勢改變（血量上升），清空拒絕集合重新評估
                 // （已脫離瀕死則 advancePeachQuery 會直接結束）
@@ -2073,6 +3046,12 @@
                 gState.gameLogHtml += "<br>🚨 【玩家 " + p.id + "】 進入【瀕死狀態】！需要【桃】救援...";
                 // 啟動手動求桃流程（resumeSourceIdx 用當前回合方，索桃結束後回到該方收尾）
                 startPeachQuery(pIdx, gState.currentPlayerIdx);
+            } else {
+                // 曹操【奸雄】：受到傷害後（未瀕死）摸一張牌
+                if (playerHasSkill(pIdx, 'caocao')) {
+                    drawCardsBackend(pIdx, points); // 受到幾點傷害就摸幾張
+                    gState.gameLogHtml += "<br>🗡️ 【奸雄】發動！【玩家 " + p.id + "】 受傷後摸了 " + points + " 張牌。";
+                }
             }
         }
 
@@ -2144,6 +3123,7 @@
 
         function executeTurnSwitchBackend() {
             gState.hasUsedKillThisTurn = false;
+            gState.skipPlayStage = false; // 先清掉上一回合的樂不思蜀狀態
             cancelTargetSelection();
             
             var aliveCount = 0;
@@ -2162,8 +3142,61 @@
             }
             gState.gameLogHtml += "<br>--------------------------------------------------<br>📣 輪到 【 玩家 " + gState.playersData[gState.currentPlayerIdx].id + " 】 的大回合開始！";
             for(var i=0; i<gState.totalPlayers; i++) gState.playersData[i].selectedIndex = -1;
+            // 回合開始先處理判定區（樂不思蜀、閃電）。若樂不思蜀生效則跳過出牌（但仍摸牌）。
+            var skipPlay = processJudgeZone(gState.currentPlayerIdx);
+            if (gState.isGameOver) { updateCloud(); return; } // 閃電可能劈死人
             drawCardsBackend(gState.currentPlayerIdx, 2);
+            gState.skipPlayStage = skipPlay; // 樂不思蜀：本回合跳過出牌階段
             updateCloud();
+        }
+
+        // 處理某玩家回合開始的判定區（依序判定每張延時錦囊）
+        // 回傳 true 表示樂不思蜀生效需跳過出牌階段
+        function processJudgeZone(pIdx) {
+            var p = gState.playersData[pIdx];
+            if (!p || !p.judgeZone || p.judgeZone.length === 0) return false;
+            var skipPlay = false;
+            // 複製一份來處理（過程中會清空原判定區）
+            var zone = p.judgeZone.slice();
+            p.judgeZone = [];
+            for (var z = 0; z < zone.length; z++) {
+                var delayCard = zone[z];
+                if (delayCard.displayType === 'lebu') {
+                    var judge = drawJudgeCard();
+                    var isHeart = judge && judge.suit === '♥';
+                    gState.gameLogHtml += "<br>🎭 【樂不思蜀】判定：" + (judge ? judge.suit + judge.name : '?') + " → " + (isHeart ? "紅桃，解除！正常出牌。" : "非紅桃，本回合跳過出牌階段！");
+                    if (!isHeart) skipPlay = true;
+                    if (!gState.discardPile) gState.discardPile = [];
+                    gState.discardPile.push(delayCard); // 判定後樂不思蜀進棄牌堆
+                }
+                else if (delayCard.displayType === 'shandian') {
+                    var judge2 = drawJudgeCard();
+                    // 閃電：♠2~9 → 受 3 點雷傷；否則移到下家判定區
+                    var isHit = judge2 && judge2.suit === '♠' && isSpadeInRange(judge2.name);
+                    gState.gameLogHtml += "<br>⚡ 【閃電】判定：" + (judge2 ? judge2.suit + judge2.name : '?') + " → " + (isHit ? "♠2~9，遭雷劈受 3 點傷害！" : "未中，移交下家。");
+                    if (isHit) {
+                        if (!gState.discardPile) gState.discardPile = [];
+                        gState.discardPile.push(delayCard); // 劈中後閃電進棄牌堆
+                        damagePlayerBackend(pIdx, 3);
+                        checkWinConditionBackend();
+                    } else {
+                        // 移到下一個存活玩家的判定區
+                        var nx = pIdx;
+                        do { nx = (nx + 1) % gState.totalPlayers; } while (!gState.playersData[nx].isAlive && nx !== pIdx);
+                        if (!gState.playersData[nx].judgeZone) gState.playersData[nx].judgeZone = [];
+                        gState.playersData[nx].judgeZone.push(delayCard);
+                    }
+                }
+            }
+            return skipPlay;
+        }
+
+        // 閃電判定：♠2~9 才中（A、10、J、Q、K 不中）
+        function isSpadeInRange(name) {
+            var n = name;
+            if (n === 'A' || n === '10' || n === 'J' || n === 'Q' || n === 'K') return false;
+            var num = parseInt(n, 10);
+            return num >= 2 && num <= 9;
         }
 
         function checkWinConditionBackend() {
@@ -2180,8 +3213,37 @@
         }
 
         function getCardNameChinese(type) {
-            var trans = { 'kill':'殺', 'dodge':'閃', 'peach':'桃', 'bridge':'過河拆橋', 'snatch':'順手牽羊', 'duel':'決鬥', 'wuzhong':'無中生有', 'wuxie':'無懈可擊', 'nanman':'南蠻入侵', 'wanjian':'萬箭齊發', 'taoyuan':'桃園結義', 'wugu':'五穀豐登' };
+            var trans = { 'kill':'殺', 'dodge':'閃', 'peach':'桃', 'bridge':'過河拆橋', 'snatch':'順手牽羊', 'duel':'決鬥', 'wuzhong':'無中生有', 'wuxie':'無懈可擊', 'nanman':'南蠻入侵', 'wanjian':'萬箭齊發', 'taoyuan':'桃園結義', 'wugu':'五穀豐登', 'crossbow':'諸葛連弩', 'greendragon':'青龍偃月刀', 'bagua':'八卦陣', 'renwang':'仁王盾', 'jiedao':'借刀殺人', 'lebu':'樂不思蜀', 'shandian':'閃電', 'qinggang':'青釭劍', 'hanbing':'寒冰劍', 'guanshi':'貫石斧', 'zhangba':'丈八蛇矛' };
             return trans[type] || '未知牌';
+        }
+
+        // 回傳卡牌的功能說明（用於滑鼠移過去的 tooltip）
+        function getCardTooltip(card) {
+            if (!card) return '';
+            var t = card.displayType;
+            // 裝備牌：用 EQUIPMENTS 定義的說明
+            if (isEquipType(t)) {
+                var ed = getEquipDef(t);
+                return ed ? (ed.name + '（' + (ed.slot === 'weapon' ? '武器' : '防具') + '）：' + ed.desc) : '';
+            }
+            var descs = {
+                'kill': '【殺】：對一名角色造成 1 點傷害，對方可用【閃】抵消。',
+                'dodge': '【閃】：抵消一張【殺】。',
+                'peach': '【桃】：自己回復 1 點體力，或在他人瀕死時救援。',
+                'duel': '【決鬥】：與一名角色輪流出【殺】，先出不了的一方受傷。',
+                'bridge': '【過河拆橋】：棄置一名角色的一張牌。',
+                'snatch': '【順手牽羊】：獲得一名角色的一張牌。',
+                'jiedao': '【借刀殺人】：令一名持武器的角色攻擊另一人，否則交出武器。',
+                'lebu': '【樂不思蜀】：置於目標判定區，判定非紅桃則對方跳過出牌階段。',
+                'shandian': '【閃電】：延時錦囊，判定♠2~9 受 3 點雷傷，否則移交下家。',
+                'wuzhong': '【無中生有】：摸兩張牌。',
+                'wuxie': '【無懈可擊】：抵消一張錦囊牌的效果。',
+                'nanman': '【南蠻入侵】：所有其他角色需出【殺】，否則受 1 點傷害。',
+                'wanjian': '【萬箭齊發】：所有其他角色需出【閃】，否則受 1 點傷害。',
+                'taoyuan': '【桃園結義】：所有角色回復 1 點體力。',
+                'wugu': '【五穀豐登】：所有角色各摸 1 張牌。'
+            };
+            return descs[t] || '';
         }
 
         function getCardContentHtml(card) {
@@ -2193,12 +3255,23 @@
             else if (card.displayType === 'duel') suitHtml = '<div><span class="duel-badge">決鬥</span></div>';
             else if (card.displayType === 'bridge') suitHtml = '<div><span class="bridge-badge">過河<br>拆橋</span></div>';
             else if (card.displayType === 'snatch') suitHtml = '<div><span class="snatch-badge">順手<br>牽羊</span></div>';
+            else if (card.displayType === 'jiedao') suitHtml = '<div><span class="duel-badge">借刀<br>殺人</span></div>';
+            else if (card.displayType === 'lebu') suitHtml = '<div><span class="aoe-badge">樂不<br>思蜀</span></div>';
+            else if (card.displayType === 'shandian') suitHtml = '<div><span class="aoe-badge">閃電</span></div>';
             else if (card.displayType === 'wuzhong') suitHtml = '<div><span class="wuzhong-badge">無中<br>生有</span></div>';
             else if (card.displayType === 'wuxie') suitHtml = '<div><span class="wuxie-badge">無懈<br>可擊</span></div>';
             else if (card.displayType === 'nanman') suitHtml = '<div><span class="aoe-badge">南蠻<br>入侵</span></div>';
             else if (card.displayType === 'wanjian') suitHtml = '<div><span class="aoe-badge">萬箭<br>齊發</span></div>';
             else if (card.displayType === 'taoyuan') suitHtml = '<div><span class="group-badge">桃園<br>結義</span></div>';
             else if (card.displayType === 'wugu') suitHtml = '<div><span class="group-badge">五穀<br>豐登</span></div>';
+            else if (card.displayType === 'crossbow') suitHtml = '<div><span class="equip-badge">諸葛<br>連弩</span></div>';
+            else if (card.displayType === 'greendragon') suitHtml = '<div><span class="equip-badge">青龍<br>偃月</span></div>';
+            else if (card.displayType === 'qinggang') suitHtml = '<div><span class="equip-badge">青釭<br>劍</span></div>';
+            else if (card.displayType === 'hanbing') suitHtml = '<div><span class="equip-badge">寒冰<br>劍</span></div>';
+            else if (card.displayType === 'guanshi') suitHtml = '<div><span class="equip-badge">貫石<br>斧</span></div>';
+            else if (card.displayType === 'zhangba') suitHtml = '<div><span class="equip-badge">丈八<br>蛇矛</span></div>';
+            else if (card.displayType === 'bagua') suitHtml = '<div><span class="armor-badge">八卦<br>陣</span></div>';
+            else if (card.displayType === 'renwang') suitHtml = '<div><span class="armor-badge">仁王<br>盾</span></div>';
             return nameHtml + suitHtml;
         }
 
@@ -2238,6 +3311,10 @@
                 else if (pend.kind === 'duel') waitMsg += "是否打出【殺】（決鬥）…";
                 else if (pend.kind === 'peach') waitMsg += "是否打出【桃】救援…";
                 else if (pend.kind === 'aoe') waitMsg += "是否打出【" + pend.cardName + "】…";
+                else if (pend.kind === 'greendragon') waitMsg += "是否青龍刀追殺…";
+                else if (pend.kind === 'guanshi') waitMsg += "貫石斧的選擇…";
+                else if (pend.kind === 'hanbing') waitMsg += "寒冰劍的選擇…";
+                else if (pend.kind === 'jiedao') waitMsg += "借刀殺人的選擇…";
                 panel.innerHTML = waitMsg;
                 return;
             }
@@ -2253,9 +3330,43 @@
                 yes = "🟣 出【無懈】"; no = "跳過";
                 html += panelBtns("respondWuxie");
             } else if (pend.kind === 'duel') {
+                if (pend.awaitKillPick) {
+                    // 關羽武聖：請點手牌選一張當殺
+                    html = "🗡️【武聖】請點選下方一張手牌作為【殺】打出。";
+                    panel.innerHTML = html;
+                    return;
+                }
                 html = "⚡ 決鬥中！輪到你打出【殺】，否則受傷。";
                 yes = "🗡️ 出【殺】"; no = "🏹 放棄（受 1 傷害）";
                 html += panelBtns("respondDuel");
+            } else if (pend.kind === 'greendragon') {
+                if (pend.awaitKillPick) {
+                    html = "🗡️【武聖】請點選下方一張手牌作為追加的【殺】。";
+                    panel.innerHTML = html;
+                    return;
+                }
+                html = "🐉 【青龍偃月刀】你的【殺】被閃了，是否追加一張【殺】？";
+                yes = "🐉 追加【殺】"; no = "放棄";
+                html += panelBtns("respondGreenDragon");
+            } else if (pend.kind === 'guanshi') {
+                html = "🪓 【貫石斧】你的【殺】被閃了，是否棄兩張牌讓此【殺】強制命中？";
+                yes = "🪓 棄兩牌命中"; no = "放棄";
+                html += panelBtns("respondGuanshi");
+            } else if (pend.kind === 'hanbing') {
+                var hbVictim = gState.playersData[pend.targetIdx].id;
+                html = "❄️ 【寒冰劍】你的【殺】命中【玩家 " + hbVictim + "】，是否改為棄掉對方兩張牌（不造成傷害）？";
+                yes = "❄️ 棄對方兩牌"; no = "💥 照常傷害";
+                html += panelBtns("respondHanbing");
+            } else if (pend.kind === 'jiedao') {
+                if (pend.awaitKillPick) {
+                    html = "🗡️【武聖】請點選下方一張手牌作為【殺】打出。";
+                    panel.innerHTML = html;
+                    return;
+                }
+                var victimId = gState.playersData[pend.ctx.victimIdx].id;
+                html = "🗡️ 你被【借刀殺人】指定！是否對【玩家 " + victimId + "】出【殺】？（不出則交出武器）";
+                yes = "🗡️ 出【殺】"; no = "🔧 交出武器";
+                html += panelBtns("respondJiedao");
             } else if (pend.kind === 'peach') {
                 var dyingId = gState.playersData[pend.targetIdx].id;
                 if (pend.responderIdx === pend.targetIdx) html = "🚨 你瀕死！是否打出【桃】自救？";
@@ -2263,6 +3374,11 @@
                 yes = "💖 出【桃】"; no = "不出";
                 html += panelBtns("respondPeach");
             } else if (pend.kind === 'aoe') {
+                if (pend.awaitKillPick) {
+                    html = "🗡️【武聖】請點選下方一張手牌作為【殺】抵消南蠻。";
+                    panel.innerHTML = html;
+                    return;
+                }
                 var aoeName = (pend.needType === 'kill') ? '南蠻入侵' : '萬箭齊發';
                 html = "🎴 你受到【" + aoeName + "】影響！是否打出【" + pend.cardName + "】？";
                 yes = "🛡️ 出【" + pend.cardName + "】"; no = "💥 不出（受 1 傷害）";
@@ -2366,8 +3482,60 @@
                     ? '<div style="font-size:16px; color:#ffd700; font-weight:bold; margin-top:-4px; margin-bottom:4px; text-shadow:0 1px 2px rgba(0,0,0,0.6);">「' + escapeHtml(pname) + '」</div>'
                     : '';
 
+                // 武將顯示（名字 + 技能名 + 技能說明按鈕）
+                var genHtml = '';
+                var genObj = p.general ? getGeneralByKey(p.general) : null;
+                if (genObj) {
+                    var kingdomColor = { '蜀':'#43a047', '魏':'#1e88e5', '吳':'#e53935', '群':'#8e24aa' }[genObj.kingdom] || '#888';
+                    // 技能名改用青綠色膠囊底，與金色玩家名明顯區隔
+                    genHtml = '<div style="margin:2px 0 6px 0; display:flex; align-items:center; flex-wrap:wrap; gap:5px;">' +
+                        '<span style="background:' + kingdomColor + '; color:#fff; font-size:13px; font-weight:bold; padding:2px 8px; border-radius:10px;">' + genObj.kingdom + '｜' + escapeHtml(genObj.name) + '</span>' +
+                        '<span style="background:#0d3b34; color:#4ddbc4; font-size:13px; font-weight:bold; padding:2px 8px; border-radius:10px; border:1px solid #1e7a6c;">【' + escapeHtml(genObj.skill) + '】</span>' +
+                        '<span onclick="event.stopPropagation(); showSkillInfo(\'' + genObj.key + '\')" style="cursor:pointer; background:#444; color:#fff; font-size:12px; font-weight:bold; width:18px; height:18px; line-height:18px; text-align:center; border-radius:50%; display:inline-block;" title="查看技能說明">?</span>' +
+                        '</div>';
+                }
+
+                // 裝備區顯示（武器格 + 防具格）
+                var equipHtml = '';
+                if (p.equip && (p.equip.weapon || p.equip.armor)) {
+                    var parts = [];
+                    if (p.equip.weapon) {
+                        var wd = getEquipDef(p.equip.weapon);
+                        if (wd) {
+                            // 丈八蛇矛：自己回合可點擊發動技能
+                            var canClickZhangba = (p.equip.weapon === 'zhangba' && i === myPlayerIdx && i === gState.currentPlayerIdx && !gState.isDiscardStage);
+                            if (canClickZhangba) {
+                                parts.push('<span onclick="event.stopPropagation(); activateZhangba(' + i + ');" style="background:#6d4c41; color:#ffd54f; font-size:12px; padding:2px 7px; border-radius:8px; cursor:pointer; border:1px solid #ffd54f;" title="點擊發動：' + escapeHtml(wd.desc) + '">⚔️ ' + escapeHtml(wd.name) + ' 👆</span>');
+                            } else {
+                                parts.push('<span style="background:#6d4c41; color:#ffd54f; font-size:12px; padding:2px 7px; border-radius:8px;" title="' + escapeHtml(wd.desc) + '">⚔️ ' + escapeHtml(wd.name) + '</span>');
+                            }
+                        }
+                    }
+                    if (p.equip.armor) {
+                        var ad = getEquipDef(p.equip.armor);
+                        if (ad) parts.push('<span style="background:#37474f; color:#80deea; font-size:12px; padding:2px 7px; border-radius:8px;" title="' + escapeHtml(ad.desc) + '">🛡️ ' + escapeHtml(ad.name) + '</span>');
+                    }
+                    equipHtml = '<div style="margin:2px 0 6px 0; display:flex; gap:5px; flex-wrap:wrap;">' + parts.join('') + '</div>';
+                }
+
+                // 判定區顯示（延時錦囊：樂不思蜀、閃電）
+                var judgeHtml = '';
+                if (p.judgeZone && p.judgeZone.length > 0) {
+                    var jparts = [];
+                    for (var jz = 0; jz < p.judgeZone.length; jz++) {
+                        var jc = p.judgeZone[jz];
+                        var jName = getCardNameChinese(jc.displayType);
+                        var jIcon = jc.displayType === 'shandian' ? '⚡' : '🎭';
+                        jparts.push('<span style="background:#4a148c; color:#e1bee7; font-size:12px; padding:2px 7px; border-radius:8px;">' + jIcon + ' ' + escapeHtml(jName) + '</span>');
+                    }
+                    judgeHtml = '<div style="margin:2px 0 6px 0; display:flex; gap:5px; flex-wrap:wrap;">' + jparts.join('') + '</div>';
+                }
+
                 var innerHtml = '<div style="text-align: left; font-weight: bold; color: ' + colorStyle + '; font-size: 22px;">👤 玩家 ' + p.id + deadStr + '</div>' +
                                 nameHtml +
+                                genHtml +
+                                equipHtml +
+                                judgeHtml +
                                 '<div class="hp-display">' + hpStr + ' (' + p.hp + '/' + maxHp + ')</div>' +
                                 '<div id="pcards-' + i + '" class="cards-area" onclick="event.stopPropagation();"></div>' + 
                                 '<div>' +
@@ -2425,7 +3593,7 @@
                             ? 'pickTargetCard(' + i + ', ' + j + ')'
                             : 'selectCard(' + i + ', ' + j + ')';
                         if (isPickingFromThis) cls += ' selectable-pick';
-                        cardsHtml += '<div class="' + cls + '" onclick="' + clickHandler + '">' + getCardContentHtml(p.hand[j]) + '</div>';
+                        cardsHtml += '<div class="' + cls + '" title="' + escapeHtml(getCardTooltip(p.hand[j])) + '" onclick="' + clickHandler + '">' + getCardContentHtml(p.hand[j]) + '</div>';
                     } else if (isPickingFromThis) {
                         // 看不到內容但要能選（拆橋/順手對盲牌）
                         cardsHtml += '<div class="card card-back selectable-pick" onclick="pickTargetCard(' + i + ', ' + j + ')"><span>🃏</span><span style="font-size:11px; margin-top:5px; color:#aaa;">點此選取</span></div>';
