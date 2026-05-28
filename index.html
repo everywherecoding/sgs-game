@@ -436,6 +436,18 @@
             <option value="5">5 人混戰</option>
             <option value="6">6 人亂鬥</option>
         </select>
+
+        <label for="deck-version-select">牌庫版本：</label>
+        <select id="deck-version-select" title="精簡版約 55 張、適合快節奏；完整版 100+ 張、牌種齊全">
+            <option value="full" selected>完整版（100+張）</option>
+            <option value="simple">精簡版（約55張）</option>
+        </select>
+
+        <label for="general-mode-select">武將：</label>
+        <select id="general-mode-select" title="啟用武將則每人有專屬技能；無武將則大家相同、純比拚牌技">
+            <option value="on" selected>啟用武將</option>
+            <option value="off">無武將（純牌局）</option>
+        </select>
         
         <button class="btn-restart" onclick="startNewGameOnline()">🔄 線上洗牌重開開局</button>
 
@@ -1385,6 +1397,12 @@
             return initExactDeck(1);
         }
 
+        // 依玩家選擇的版本建構牌庫：'simple' 精簡版約 55 張、'full' 完整版 100+ 張
+        function buildDeckByVersion(version) {
+            if (version === 'simple') return initSimpleDeck(1);
+            return initExactDeck(1);
+        }
+
         function initExactDeck(deckCount) {
             var tDeck = [];
             for (var d = 0; d < deckCount; d++) {
@@ -1500,18 +1518,24 @@
                 logLocal("ℹ️ 新局人數變動，請重新選擇你的身份。");
             }
             
-            // 依人數選牌庫：3 人以下用原始 54 張簡化版，4 人以上用標準配置
-            var fullDeck = buildDeckForPlayers(totalP);
-            var generalKeys = assignGenerals(totalP); // 隨機分配武將
+            // 依玩家選的牌庫版本建構牌堆（不再綁人數）
+            var deckVerEl = document.getElementById('deck-version-select');
+            var deckVersion = deckVerEl ? deckVerEl.value : 'full';
+            var fullDeck = buildDeckByVersion(deckVersion);
+            // 武將模式：on=分配武將，off=無武將（大家統一 4 血、無技能）
+            var genModeEl = document.getElementById('general-mode-select');
+            var useGenerals = !genModeEl || genModeEl.value !== 'off';
+            var generalKeys = useGenerals ? assignGenerals(totalP) : [];
             var pData = [];
             for (var i = 0; i < totalP; i++) {
-                var gen = getGeneralByKey(generalKeys[i]);
+                var genKey = useGenerals ? generalKeys[i] : null;
+                var gen = useGenerals ? getGeneralByKey(genKey) : null;
                 var gMaxHp = gen ? gen.maxHp : 4;
                 pData.push({
                     id: i + 1,
                     hand: fullDeck.slice(0, 4), 
                     hp: gMaxHp, maxHp: gMaxHp, selectedIndex: -1, isAlive: true,
-                    general: generalKeys[i],   // 武將 key
+                    general: genKey,   // 武將 key（無武將模式為 null）
                     equip: { weapon: null, armor: null },   // 裝備區：武器、防具
                     judgeZone: []   // 判定區：延時錦囊（樂不思蜀、閃電）
                 });
@@ -3538,6 +3562,7 @@
                                 judgeHtml +
                                 '<div class="hp-display">' + hpStr + ' (' + p.hp + '/' + maxHp + ')</div>' +
                                 '<div id="pcards-' + i + '" class="cards-area" onclick="event.stopPropagation();"></div>' + 
+                                '<div id="pcardinfo-' + i + '" style="min-height:0; font-size:13px; color:#b2dfdb; margin:4px 2px; line-height:1.4;"></div>' +
                                 '<div>' +
                                     '<button id="pbtn-play-' + i + '" class="btn-action" style="background-color:'+colorStyle+';" onclick="event.stopPropagation(); useCard(' + i + ')">使用卡牌</button>' +
                                     '<button id="pbtn-end-' + i + '" class="btn-end" onclick="event.stopPropagation(); endTurn(' + i + ')">結束回合</button>' +
@@ -3602,6 +3627,17 @@
                     }
                 }
                 pCardsEl.innerHTML = cardsHtml || '<span style="color:#666;">無手牌</span>';
+
+                // 牌說明區：選了某張牌時顯示其功能（手機友善，取代 hover）
+                var pCardInfoEl = document.getElementById('pcardinfo-' + i);
+                if (pCardInfoEl) {
+                    if (canSeeThisHand && p.selectedIndex >= 0 && p.selectedIndex < p.hand.length) {
+                        var selCard = p.hand[p.selectedIndex];
+                        pCardInfoEl.innerHTML = '💡 ' + escapeHtml(getCardTooltip(selCard));
+                    } else {
+                        pCardInfoEl.innerHTML = '';
+                    }
+                }
 
                 // 全域鎖：有待回應 / 選牌進行中，所有人的一般操作按鈕都停用
                 var globalLock = (gState.pending != null) || (gState.pickCard != null);
